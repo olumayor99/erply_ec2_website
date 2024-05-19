@@ -100,7 +100,6 @@ resource "aws_launch_configuration" "ec2_website" {
                 sudo apt-get update
                 sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
                 docker run -d -p 80:80 --name ec2_website olumayor99/doyenify-devops:latest
-
               EOF
 }
 

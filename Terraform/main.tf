@@ -150,6 +150,7 @@ resource "aws_autoscaling_attachment" "ec2_website" {
   lb_target_group_arn    = aws_lb_target_group.ec2_website.arn
 }
 
+# Create Internet Gateway
 resource "aws_internet_gateway" "ec2_website" {
   vpc_id = aws_vpc.ec2_website.id
 }

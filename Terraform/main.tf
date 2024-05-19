@@ -149,3 +149,27 @@ resource "aws_autoscaling_attachment" "ec2_website" {
   autoscaling_group_name = aws_autoscaling_group.ec2_website.id
   lb_target_group_arn    = aws_lb_target_group.ec2_website.arn
 }
+
+resource "aws_internet_gateway" "ec2_website" {
+  vpc_id = aws_vpc.ec2_website.id
+}
+
+resource "aws_route_table" "ec2_website" {
+  vpc_id = aws_vpc.ec2_website.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.ec2_website.id
+  }
+}
+
+resource "aws_route_table_association" "a" {
+  subnet_id      = aws_subnet.subnet1.id
+  route_table_id = aws_route_table.ec2_website.id
+}
+
+resource "aws_route_table_association" "b" {
+  subnet_id      = aws_subnet.subnet2.id
+  route_table_id = aws_route_table.ec2_website.id
+}
+

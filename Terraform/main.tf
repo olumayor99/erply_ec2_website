@@ -24,7 +24,7 @@ resource "aws_launch_template" "ec2_website" {
 
   network_interfaces {
     associate_public_ip_address = true
-    security_groups = [aws_security_group.ec2_website.id]
+    security_groups = [aws_security_group.instances.id]
   }
 
   user_data = base64encode(<<-EOF
@@ -98,8 +98,8 @@ resource "aws_subnet" "subnet2" {
   availability_zone = "us-east-1b"
 }
 
-# Create Security Group
-resource "aws_security_group" "ec2_website" {
+# Create Security Group for Load Balancer
+resource "aws_security_group" "lb" {
   vpc_id = aws_vpc.ec2_website.id
 
   ingress {
@@ -124,12 +124,31 @@ resource "aws_security_group" "ec2_website" {
   }
 }
 
+# Create Security Group for Instances
+resource "aws_security_group" "instances" {
+  vpc_id = aws_vpc.main.id
+
+  ingress {
+    from_port       = 80
+    to_port         = 80
+    protocol        = "tcp"
+    security_groups = [aws_security_group.lb.id]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
 # Create Load Balancer
 resource "aws_lb" "ec2_website" {
   name               = "app-load-balancer"
   internal           = false
   load_balancer_type = "application"
-  security_groups    = [aws_security_group.ec2_website.id]
+  security_groups    = [aws_security_group.lb.id]
   subnets            = [aws_subnet.subnet1.id, aws_subnet.subnet2.id]
 
   enable_deletion_protection = false

@@ -10,7 +10,7 @@ terraform {
 
   backend "s3" {
     bucket         = "olatest-logger-lambda"
-    key            = "terraform/aws/terraform.tfstate"
+    key            = "terraform/aws/erply.tfstate"
     region         = "us-east-1"
     dynamodb_table = "terraform-s3-backend-locking"
     encrypt        = true

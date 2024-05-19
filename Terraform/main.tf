@@ -142,6 +142,11 @@ resource "aws_elb" "ec2_website" {
     healthy_threshold   = 2
     unhealthy_threshold = 2
   }
+}
 
-  instances = aws_autoscaling_group.ec2_website.instances
+# ELB attachment to Autoscaling Group
+# Create a new load balancer attachment
+resource "aws_autoscaling_attachment" "ec2_website" {
+  autoscaling_group_name = aws_autoscaling_group.ec2_website.id
+  elb                    = aws_elb.ec2_website.id
 }

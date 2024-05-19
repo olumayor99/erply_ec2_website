@@ -15,18 +15,19 @@ data "aws_ami" "ubuntu" {
 
   owners = ["099720109477"]
 }
-# Create Launch Configuration
-resource "aws_launch_configuration" "ec2_website" {
-  name            = "ec2-websitelaunch-configuration"
-  image_id        = data.aws_ami.ubuntu.id
-  instance_type   = "t2.micro"
-  security_groups = [aws_security_group.ec2_website.id]
 
-  lifecycle {
-    create_before_destroy = true
+# Create Launch Template
+resource "aws_launch_template" "ec2_website" {
+  name_prefix   = "ec2-website-launch-template"
+  image_id        = data.aws_ami.ubuntu.id
+  instance_type = "t2.micro"
+
+  network_interfaces {
+    associate_public_ip_address = true
+    security_groups = [aws_security_group.ec2_website.id]
   }
 
-  user_data = <<-EOF
+  user_data = base64encode(<<-EOF
               #!/bin/bash
                 sudo apt-get update
                 sudo apt-get install ca-certificates curl
@@ -42,15 +43,28 @@ resource "aws_launch_configuration" "ec2_website" {
                 docker run -d -p 80:80 --name ec2_website olumayor99/doyenify-devops:latest
 
               EOF
+  )
+
+  tag_specifications {
+    resource_type = "instance"
+    tags = {
+      Name = "ec2-website"
+    }
+  }
 }
 
+
 # Create Autoscaling Group
+
 resource "aws_autoscaling_group" "ec2_website" {
-  launch_configuration = aws_launch_configuration.ec2_website.id
-  min_size             = 1
-  max_size             = 3
   desired_capacity     = 2
+  max_size             = 3
+  min_size             = 1
   vpc_zone_identifier  = [aws_subnet.subnet1.id, aws_subnet.subnet2.id]
+  launch_template {
+    id      = aws_launch_template.ec2_website.id
+    version = "$Latest"
+  }
 
   tag {
     key                 = "Environment"
@@ -62,6 +76,7 @@ resource "aws_autoscaling_group" "ec2_website" {
     create_before_destroy = true
   }
 }
+
 
 # Create VPC
 resource "aws_vpc" "ec2_website" {

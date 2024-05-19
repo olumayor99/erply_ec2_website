@@ -46,7 +46,7 @@ resource "aws_launch_template" "ec2_website" {
             sudo apt-get update
             sudo apt-get install docker-ce -y
             docker run -d -p 80:80 --name website olumayor99/doyenify-devops:latest
-            
+
               EOF
   )
 
@@ -175,6 +175,7 @@ resource "aws_internet_gateway" "ec2_website" {
   vpc_id = aws_vpc.ec2_website.id
 }
 
+# Create Route Tables
 resource "aws_route_table" "ec2_website" {
   vpc_id = aws_vpc.ec2_website.id
 

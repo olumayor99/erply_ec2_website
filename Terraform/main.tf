@@ -108,7 +108,7 @@ resource "aws_lb" "ec2_website" {
   name               = "app-load-balancer"
   internal           = false
   load_balancer_type = "application"
-  security_groups    = [aws_security_group.allow_http.id]
+  security_groups    = [aws_security_group.ec2_website.id]
   subnets            = [aws_subnet.subnet1.id, aws_subnet.subnet2.id]
 
   enable_deletion_protection = false

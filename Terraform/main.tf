@@ -63,10 +63,12 @@ resource "aws_autoscaling_group" "ec2_website" {
   }
 }
 
+# Create VPC
 resource "aws_vpc" "ec2_website" {
   cidr_block = "10.0.0.0/16"
 }
 
+# Create Subnets
 resource "aws_subnet" "subnet1" {
   vpc_id            = aws_vpc.ec2_website.id
   cidr_block        = "10.0.1.0/24"
@@ -79,6 +81,7 @@ resource "aws_subnet" "subnet2" {
   availability_zone = "us-east-1b"
 }
 
+# Create Security Group
 resource "aws_security_group" "ec2_website" {
   vpc_id = aws_vpc.ec2_website.id
 
@@ -104,6 +107,7 @@ resource "aws_security_group" "ec2_website" {
   }
 }
 
+# Create Load Balancer
 resource "aws_lb" "ec2_website" {
   name               = "app-load-balancer"
   internal           = false

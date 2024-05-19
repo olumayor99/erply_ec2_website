@@ -126,7 +126,7 @@ resource "aws_security_group" "lb" {
 
 # Create Security Group for Instances
 resource "aws_security_group" "instances" {
-  vpc_id = aws_vpc.main.id
+  vpc_id = aws_vpc.ec2_website.id
 
   ingress {
     from_port       = 80

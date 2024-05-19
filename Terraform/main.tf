@@ -182,6 +182,7 @@ resource "aws_route_table" "ec2_website" {
   }
 }
 
+# Create Route Table Associations
 resource "aws_route_table_association" "a" {
   subnet_id      = aws_subnet.subnet1.id
   route_table_id = aws_route_table.ec2_website.id

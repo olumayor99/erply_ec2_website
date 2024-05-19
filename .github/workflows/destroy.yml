@@ -1,0 +1,34 @@
+name: Destroy
+
+on:
+  workflow_dispatch:
+
+env:
+    AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+    AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    AWS_DEFAULT_REGION: 'eu-north-1'
+
+jobs:
+  
+  Destroy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4   
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.8
+
+      - name: Inititialize Terraform
+        run: terraform -chdir=Terraform init -upgrade
+
+      - name: Format Terraform Code
+        run: terraform -chdir=Terraform fmt
+
+      - name: Destroy
+        run: terraform -chdir=Terraform destroy -auto-approve
+
+

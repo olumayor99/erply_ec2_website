@@ -5,7 +5,7 @@ data "aws_ami" "ubuntu" {
 
   filter {
     name   = "name"
-    values = ["ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-*"]
+    values = ["ubuntu-pro-server/images/hvm-ssd-gp3/ubuntu-noble-24.04-arm64-pro-server-*"]
   }
 
   filter {
@@ -18,7 +18,7 @@ data "aws_ami" "ubuntu" {
 
 # Create Launch Template
 resource "aws_launch_template" "ec2_website" {
-  name_prefix   = "ec2-website-launch-template"
+  name_prefix   = "${var.prefix}-launch-template"
   image_id        = data.aws_ami.ubuntu.id
   instance_type = "t2.micro"
 
@@ -82,7 +82,7 @@ resource "aws_autoscaling_group" "ec2_website" {
 
 # Create VPC
 resource "aws_vpc" "ec2_website" {
-  cidr_block = "10.0.0.0/16"
+  cidr_block = var.vpc_cidr
 }
 
 # Create Subnets

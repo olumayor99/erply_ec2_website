@@ -151,15 +151,15 @@ git push origin main
    
 ![dns!](assets/dns.png)
 
-If you can't find it there, go to the LoadBalancers tab under EC2 in your AWS console, and look for a newly created Application Load Balancer matching the details of your VPC. Select the Load Balancer and look for the DNS Endpoint to find the URL of the S3 website.
+If you can't find it there, go to the LoadBalancers tab under EC2 in your AWS console, and look for a newly created Application Load Balancer matching the details of your VPC. Select the Load Balancer and look for the `DNS name` to find the URL of the Load Balancer.
 
-![s3_bucket!](assets/s3_bucket.png)
+![lb!](assets/lb.png)
 
 Visiting the link in a browser should show a page exactly like this.
 
-![page!](assets/page.png)
+![ec2_page!](assets/ec2_page.png)
 
-The React website should now be automatically deployed to your S3 bucket every time you push changes to the main branch.
+The React website should now be automatically deployed to your EC2 instances every time you push changes to the main branch.
 
 ## Pulling down the infrastructure
 1. Go to the Actions tab of the repository, and on the left pane, click on `Destroy`, then on the right, click on `Run Workflow` dropdown, then click on the `Run Workflow` green button. It will take down the infrastructure provisioned by the pipeline.
@@ -172,7 +172,7 @@ The React website should now be automatically deployed to your S3 bucket every t
 This is the deploy.yml workflow. It triggers on every commit to the `main` branch of the repository. It sets the needed variables, some from GitHub secrets, and the rest supplied directly. It checks out the code, sets up `node` with version 16 (any other version won't work), and then it builds the code. The built code is stored in the `build` directory which it creates during the build process. The rest of the steps initialize and deploy the workload using terraform.
 
 ```yaml
-name: Deploy S3 Website
+name: Deploy on Main Push
 
 on:
   push:
@@ -181,72 +181,119 @@ on:
 env:
     AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
     AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-    AWS_DEFAULT_REGION: 'us-east-1'
-    CI: false
+    AWS_DEFAULT_REGION: 'eu-north-1'
 
 jobs:
   
   
-  Deploy_S3_Website:
+  Build_and_Push_Docker_Image_to_DockerHub:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 16
-
-      - name: NPM build
+      - name: Build Docker image
         run: |
           cd Landing-Page-React
-          npm install
-          npm run build      
+          docker build -t olumayor99/doyenify-devops .
 
-      - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v3
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
         with:
-          terraform_version: 1.8
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Inititialize Terraform
-        run: terraform -chdir=Terraform init -upgrade
+      - name: Push Docker image
+        run: |
+          docker push olumayor99/doyenify-devops
 
-      - name: Format Terraform Code
-        run: terraform -chdir=Terraform fmt
+  Deploy_Website:
+    needs: [Build_and_Push_Docker_Image_to_DockerHub]
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-      - name: Deploy Terraform Code
-        run: terraform -chdir=Terraform apply -auto-approve
+    - name: Set up Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: 1.8
+
+    - name: Inititialize Terraform Code
+      run: terraform -chdir=Terraform init -upgrade
+
+    - name: Format Terraform Code
+      run: terraform -chdir=Terraform fmt
+
+    - name: Deploy Terraform
+      run: terraform -chdir=Terraform apply -auto-approve
 ```
 
 ## Explanation of the Terraform code
-The terraform code creates an S3 bucket with all the needed configuration for an S3 website, and once that's done, it uploads the production ready code in the `build` directory into the S3 website so it can serve them across the internet.
-This is the section that deals with uploading the production ready code to S3:
+The terraform code creates a VPC with two subnets, a LoadBalancer, an Autoscaling Group with a minimum of two EC2 instances, a Launch Template to specify the details and dependencies of the instances, an Internet Gateway and Route Tables for the VPC, a Security Group for the instances to only allow HTTP access from the Load Balancer, and a Security Group for the Load Balancer to allow external access.
+The `user_data` section of the Launch Template also contains code for setting up the EC2 instances with docker, and a container running the React Website.
 
-```yaml
-locals {
-  content_types = {
-    css  = "text/css"
-    html = "text/html"
-    js   = "application/javascript"
-    json = "application/json"
-    txt  = "text/plain"
-    png  = "image/png"
-    svg  = "image/svg+xml"
+```groovy
+# Create Launch Template
+resource "aws_launch_template" "ec2_website" {
+  name_prefix   = "${var.prefix}-launch-template"
+  image_id        = data.aws_ami.ubuntu.id
+  instance_type = "t2.micro"
+
+  network_interfaces {
+    associate_public_ip_address = true
+    security_groups = [aws_security_group.instances.id]
   }
-}
 
-resource "aws_s3_object" "erply_s3_website" {
-  for_each     = fileset("../Landing-Page-React/build/", "**/*.*")
-  bucket       = aws_s3_bucket.erply_s3_website.id
-  key          = each.value
-  source       = "../Landing-Page-React/build/${each.value}"
-  etag         = filemd5("../Landing-Page-React/build/${each.value}")
-  acl          = "public-read"
-  content_type = lookup(local.content_types, element(split(".", each.value), length(split(".", each.value)) - 1), "text/plain")
-  depends_on = [aws_s3_bucket_policy.erply_s3_website]
+  user_data = base64encode(<<-EOF
+            #!/bin/bash
+            for pkg in docker.io docker-doc docker-compose docker-compose-v2 podman-docker containerd runc; do sudo apt-get remove -y $pkg; done
+            sudo apt-get update
+            sudo apt-get install -y ca-certificates curl
+            sudo install -m 0755 -d /etc/apt/keyrings
+            sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+            sudo chmod a+r /etc/apt/keyrings/docker.asc
+
+            echo \
+            "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+            $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+            sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+            sudo apt-get update
+            sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+            sudo docker run -d -p 80:80 --name website olumayor99/doyenify-devops:latest
+
+              EOF
+  )
+
+  tag_specifications {
+    resource_type = "instance"
+    tags = {
+      Name = "ec2-website"
+    }
+  }
 }
 ```
 
-The `content_types` local is necessary so the S3 website can correctly decode the object types and serve them in a webpage, instead of as an ordinary file.
+The `aws_ami` data source is necessary to automatically look for the Ubuntu 20.04 AMI in that region and automatically set its name, which can then be used in the Launch Template.
+
+```groovy
+# Get Ubuntu AMI in Region
+data "aws_ami" "ubuntu" {
+
+  most_recent = true
+
+  filter {
+    name   = "name"
+    values = ["ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-*"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+
+  owners = ["099720109477"]
+}
+```

@@ -164,7 +164,7 @@ The React website should now be automatically deployed to your EC2 instances eve
 ## Pulling down the infrastructure
 1. Go to the Actions tab of the repository, and on the left pane, click on `Destroy`, then on the right, click on `Run Workflow` dropdown, then click on the `Run Workflow` green button. It will take down the infrastructure provisioned by the pipeline.
 
-![destroy!](assets/destroy.png)
+![destroy!](assets/dest.png)
 
 2. Delete the S3 bucket and DynamoDB table created for state locking using the AWS console.
 
